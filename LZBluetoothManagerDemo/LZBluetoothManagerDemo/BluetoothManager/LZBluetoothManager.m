@@ -108,6 +108,7 @@ static LZBluetoothManager *bleManager = nil;
             case CBManagerStatePoweredOn:
             {
                 _currentCentralManagerState = BLEStatePoweredOn;
+                [self startScanning];
                 break;
             }
                 
