@@ -7,58 +7,57 @@
 //
 
 #import "LZBluetoothManager.h"
-static LZBluetoothManager *bleManager = nil;
+//static LZBluetoothManager *bleManager = nil;
 
 @interface LZBluetoothManager ()
 
-@property (nonatomic,strong) CBCentralManager *centralManager;
-@property (nonatomic,strong) CBPeripheral     *currentPeripheral;
-@property (nonatomic,strong) CBCharacteristic *characteristic;
-@property (nonatomic,strong) NSTimer          *scanTimer;
+@property (nonatomic, strong) CBCentralManager *centralManager;
+@property (nonatomic, strong) CBPeripheral     *currentPeripheral;
+@property (nonatomic, strong) CBCharacteristic *characteristic;
+@property (nonatomic, strong) NSTimer          *scanTimer;
+@property (nonatomic, assign) NSInteger distance;
 
 @end
 
 @implementation LZBluetoothManager
 
-+ (instancetype)sharedInstance
-{
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        bleManager = [[LZBluetoothManager alloc] init];
-    });
-    return bleManager;
-}
-
 - (id) initWithDelegate:(id<LZBluetoothManagerDelegate>) delegate
 {
     self = [super init];
     if (self) {
-        bleManager = [LZBluetoothManager sharedInstance];
+        self.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
         _bluetoothDelegate = delegate;
     }
     return self;
 }
 
-+ (instancetype)allocWithZone:(struct _NSZone *)zone
-{
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        bleManager = [super allocWithZone:zone];
-    });
-    return bleManager;
-}
-
-- (instancetype)init{
-    if (self = [super init]) {
-        if (!_centralManager)
-        {
-
-            //NSDictionary *options = @{CBCentralManagerOptionShowPowerAlertKey:@YES};
-            self.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
-        }
-    }
-    return self;
-}
+//+ (instancetype)sharedInstance
+//{
+//    static dispatch_once_t onceToken;
+//    dispatch_once(&onceToken, ^{
+//        bleManager = [[JYBluetoothManager alloc] init];
+//    });
+//    return bleManager;
+//}
+//
+//+ (instancetype)allocWithZone:(struct _NSZone *)zone
+//{
+//    static dispatch_once_t onceToken;
+//    dispatch_once(&onceToken, ^{
+//        bleManager = [super allocWithZone:zone];
+//    });
+//    return bleManager;
+//}
+//
+//- (instancetype)init{
+//    if (self = [super init]) {
+//        if (!_centralManager)
+//        {
+//            self.centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
+//        }
+//    }
+//    return self;
+//}
 
 #pragma mark - CBCentralManagerDelegate
 
@@ -136,7 +135,7 @@ static LZBluetoothManager *bleManager = nil;
  */
 - (void)centralManager:(CBCentralManager *)central didDiscoverPeripheral:(CBPeripheral *)peripheral advertisementData:(NSDictionary<NSString *,id> *)advertisementData RSSI:(NSNumber *)RSSI
 {
-    NSLog(@"peripheral name: %@", peripheral.name);
+    NSLog(@"peripheral name: %@ %@", peripheral.name,RSSI);
     
     if (!peripheral.name || peripheral.name.length == 0) {
         return;
@@ -145,6 +144,7 @@ static LZBluetoothManager *bleManager = nil;
     //TODO:通过校验设备名，判断是否扫描到已选的设备
     if ([self checkDeviceName:peripheral.name])
     {
+        NSLog(@"peripheral name: %@ ========距离：%f", peripheral.name,[self lzRssiToNumber:RSSI]);
         self.currentPeripheral = peripheral;
         
         if (_bluetoothDelegate && [_bluetoothDelegate respondsToSelector:@selector(bleDeviceScanned)])
@@ -319,9 +319,9 @@ static LZBluetoothManager *bleManager = nil;
     }
     [self setupUntil];
     if (_scanTimeOut > 0){  //启动定时器
-        if (_scanTimer)
-        {
+        if (_scanTimer){
             [_scanTimer invalidate];
+            _scanTimer = nil;
         }
         
         _scanTimer = [NSTimer scheduledTimerWithTimeInterval:_scanTimeOut target:self selector:@selector(scanerTimeOut) userInfo:nil repeats:NO];
@@ -359,10 +359,15 @@ static LZBluetoothManager *bleManager = nil;
 - (void)stopScanning
 {
     [_centralManager stopScan];
-    if (_scanTimer)
-    {
+    if (_scanTimer){
         [_scanTimer invalidate];
         _scanTimer = nil;
+    }
+}
+
+-(void)disConnectPeripheral{
+    if (_currentPeripheral != nil) {
+        [_centralManager cancelPeripheralConnection:_currentPeripheral];
     }
 }
 
@@ -547,4 +552,18 @@ static LZBluetoothManager *bleManager = nil;
     
 }
 
+#pragma mark - RSSI转距离number
+- (double)lzRssiToNumber:(NSNumber *)RSSI
+{
+//    int tempRssi = [RSSI intValue];
+//    int absRssi = abs(tempRssi);
+//    float power = (absRssi-75)/(10*2.0);
+//    double number = pow(10, power);//除0外，任何数的0次方等于1
+    
+    //TDO:  -59 还是 -75，不是很准确，待测试
+    //设备与手机之间的距离公式：powe(10, (abs(rssi) - 59) / (10 * 2.0));
+    float power = (abs([RSSI intValue]) - 59) / (10 * 2.0);
+    double number = pow(10, power);//除0外，任何数的0次方等于1
+    return number;
+}
 @end

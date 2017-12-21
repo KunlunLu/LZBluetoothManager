@@ -14,7 +14,7 @@
 @interface LZBluetoothManager : NSObject <CBCentralManagerDelegate,CBPeripheralDelegate>
 
 /** 单例方法*/
-+ (instancetype)sharedInstance;
+//+ (instancetype)sharedInstance;
 
 - (id)initWithDelegate:(id<LZBluetoothManagerDelegate>) delegate;
 
@@ -32,6 +32,10 @@
 //扫描复位
 -(void)resetScanning;
 
+- (void)cleanup;
+
 - (void)writeDate:(NSData *)data;
+
+-(void)disConnectPeripheral;
 
 @end
